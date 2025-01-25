@@ -1,12 +1,15 @@
+from setuptools import setup, find_packages
+
+
 setup(
-    name="easyaiapi",  # Your library name
+    name="easyaipy",
     version="0.1.0",
     author="Martin Yanev",
-    author_email="your_email@example.com",
+    author_email="mpyanev@gmail.com",
     description="A Python library for dynamic ChatGPT interactions made easy.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/your_username/easyaiapi",  # Replace with your GitHub repo URL
+    url="https://github.com/martinyanev94/easyaiapi",
     packages=find_packages(),
     install_requires=[
         "openai",

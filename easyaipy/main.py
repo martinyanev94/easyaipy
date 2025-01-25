@@ -1,14 +1,10 @@
 from openai import OpenAI
-from config import api_key
-
-client = OpenAI(api_key=api_key)
-
 import json
 import time
 
 
-def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini",
-                                 output_schema: dict = None, max_retries: int = 3):
+def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: dict = None, max_retries: int = 3,
+                       api_key: str = ""):
     """
     Function to interact with OpenAI API, dynamically adjust prompts, and enforce output schema.
 
@@ -25,6 +21,8 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini",
     Raises:
         RuntimeError: If maximum retries are reached without a valid response.
     """
+
+    client = OpenAI(api_key=api_key)
 
     # Helper function to modify the prompt
     def modify_prompt(base_prompt: str, schema: dict) -> str:
@@ -55,7 +53,6 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini",
 
             print(output)
 
-
             # Parse the response to a dictionary if schema validation is needed
             parsed_output = json.loads(output) if output_schema else output
 
@@ -80,15 +77,3 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini",
                 time.sleep(1)  # Wait briefly before retrying
             else:
                 raise RuntimeError("Maximum retries reached. Failed to generate the required output.")
-
-
-# prompt = "sfhjdlskdhfsdiuf"
-# output_schema = {"header": str, "bullet1": str, "bullet2": str, "bullet3": list, "GDP": int}
-#
-# try:
-#     result = chat_gpt_with_dynamic_prompt(prompt, model="gpt-4o-mini", output_schema=output_schema)
-#     print("Validated Output:", result)
-# except RuntimeError as e:
-#     print("Error:", e)
-
-
