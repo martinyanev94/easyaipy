@@ -14,6 +14,7 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: d
         output_schema (dict): A dictionary defining the desired output structure and types.
                               Example: {"key1": str, "key2": int}.
         max_retries (int): Maximum number of retries to adjust the prompt for a valid response.
+        api_key (str): Your OpenAI API key.
 
     Returns:
         dict: A dictionary containing the validated output if successful.
