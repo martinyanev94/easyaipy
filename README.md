@@ -49,7 +49,4 @@ If the OpenAI API responds correctly and matches the schema, the output will loo
     "summary": "AI in education enhances personalized learning, streamlines administrative tasks, and fosters innovation in teaching.",
     "word_count": 15
 }
-
-
-
 ```
