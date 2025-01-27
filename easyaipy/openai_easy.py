@@ -2,7 +2,6 @@ from openai import OpenAI
 import json
 import time
 
-
 def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: dict = None, max_retries: int = 3,
                        api_key: str = ""):
     """
@@ -17,7 +16,7 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: d
         api_key (str): Your OpenAI API key.
 
     Returns:
-        dict: A dictionary containing the validated output if successful.
+        dict: The complete API response with `data_dict` added to the `Choice` element.
 
     Raises:
         RuntimeError: If maximum retries are reached without a valid response.
@@ -32,13 +31,12 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: d
             f"{base_prompt}\n\n"
             f"Please respond in JSON format with the following structure:\n"
             f"{{{schema_description}}}\n"
-            f"Ensure the data types match the structure exactly."
+            f"Ensure the data types match the structure exactly. Return the structure only."
         )
 
     # Adjust the initial prompt if a schema is provided
     if output_schema:
         prompt = modify_prompt(prompt, output_schema)
-        print(prompt)
 
     for attempt in range(max_retries):
         try:
@@ -49,10 +47,14 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: d
                     {"role": "user", "content": prompt}
                 ],
             )
-            output = response.choices[0].message.content
-            output = "\n".join(output.splitlines()[1:-1]) if len(output.splitlines()) > 2 else ""
+            print(response)
 
+            # Extract the content from the response
+            output = response.choices[0].message.content
+            output = output.replace("'", '"')
             print(output)
+
+            output = "\n".join(output.splitlines()[1:-1]) if len(output.splitlines()) > 2 else ""
 
             # Parse the response to a dictionary if schema validation is needed
             parsed_output = json.loads(output) if output_schema else output
@@ -63,8 +65,11 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: d
                     if key not in parsed_output or not isinstance(parsed_output[key], value_type):
                         raise ValueError(f"Invalid output: '{key}' is missing or not of type {value_type.__name__}.")
 
-            # If validation succeeds, return the output
-            return parsed_output
+            # Add the parsed output as `data_dict` to the Choice object
+            response.choices[0].data_dict = parsed_output
+
+            # Return the complete response with the additional field
+            return response
 
         except (ValueError, json.JSONDecodeError) as e:
             print(f"Attempt {attempt + 1}/{max_retries} failed: {e}")
@@ -75,6 +80,6 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: d
                     f"Ensure your response is a JSON object strictly matching this schema: {output_schema}. "
                 )
                 prompt = clarification + prompt
-                time.sleep(1)  # Wait briefly before retrying
+                time.sleep(1)
             else:
                 raise RuntimeError("Maximum retries reached. Failed to generate the required output.")
