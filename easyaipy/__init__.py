@@ -1,1 +1,1 @@
-from .main import openai_easy_prompt
+from .openai_easy import openai_easy_prompt

@@ -1,6 +1,9 @@
+import re
+
 from openai import OpenAI
 import json
 import time
+
 
 def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: dict = None, max_retries: int = 3,
                        api_key: str = ""):
@@ -11,12 +14,11 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: d
         prompt (str): The initial user prompt.
         model (str): The AI model to use (default is "gpt-4o-mini").
         output_schema (dict): A dictionary defining the desired output structure and types.
-                              Example: {"key1": str, "key2": int}.
         max_retries (int): Maximum number of retries to adjust the prompt for a valid response.
         api_key (str): Your OpenAI API key.
 
     Returns:
-        dict: The complete API response with `data_dict` added to the `Choice` element.
+        OpenAIResponse: The full API response object with added data dict. Access at response.choices[0].data_dict.
 
     Raises:
         RuntimeError: If maximum retries are reached without a valid response.
@@ -24,62 +26,47 @@ def openai_easy_prompt(prompt: str, model: str = "gpt-4o-mini", output_schema: d
 
     client = OpenAI(api_key=api_key)
 
-    # Helper function to modify the prompt
     def modify_prompt(base_prompt: str, schema: dict) -> str:
-        schema_description = ", ".join([f"'{key}': {value_type.__name__}" for key, value_type in schema.items()])
-        return (
-            f"{base_prompt}\n\n"
-            f"Please respond in JSON format with the following structure:\n"
-            f"{{{schema_description}}}\n"
-            f"Ensure the data types match the structure exactly. Return the structure only."
-        )
+        """Appends schema instructions to the prompt."""
+        schema_desc = ", ".join(f"'{k}': {v.__name__}" for k, v in schema.items())
+        return (f"{base_prompt}\n\n"
+                f"Respond in JSON format with this structure:\n"
+                f"{{{schema_desc}}}\n"
+                f"Ensure types match exactly and return only a JSON code block.")
 
-    # Adjust the initial prompt if a schema is provided
     if output_schema:
         prompt = modify_prompt(prompt, output_schema)
 
     for attempt in range(max_retries):
         try:
-            # Call the OpenAI API
             response = client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "user", "content": prompt}]
             )
-            print(response)
 
-            # Extract the content from the response
-            output = response.choices[0].message.content
-            output = output.replace("'", '"')
-            print(output)
+            output = response.choices[0].message.content.replace("'", '"')
 
-            output = "\n".join(output.splitlines()[1:-1]) if len(output.splitlines()) > 2 else ""
+            # Extract JSON content
+            json_text = re.search(r"```json\s*(\{.*?\})\s*```", output, re.DOTALL) or \
+                        re.search(r"(\{.*?\})", output, re.DOTALL)
 
-            # Parse the response to a dictionary if schema validation is needed
-            parsed_output = json.loads(output) if output_schema else output
+            parsed_output = json.loads(json_text.group(1)) if json_text else {}
 
-            # Validate the output if a schema is provided
+            # Validate against output schema
             if output_schema:
-                for key, value_type in output_schema.items():
-                    if key not in parsed_output or not isinstance(parsed_output[key], value_type):
-                        raise ValueError(f"Invalid output: '{key}' is missing or not of type {value_type.__name__}.")
+                for key, expected_type in output_schema.items():
+                    if not isinstance(parsed_output.get(key), expected_type):
+                        raise ValueError(f"Invalid format: '{key}' is missing or incorrect.")
 
-            # Add the parsed output as `data_dict` to the Choice object
-            response.choices[0].data_dict = parsed_output
-
-            # Return the complete response with the additional field
+            response.choices[0].data_dict = dict(parsed_output)
             return response
 
-        except (ValueError, json.JSONDecodeError) as e:
-            print(f"Attempt {attempt + 1}/{max_retries} failed: {e}")
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Retry {attempt + 1}/{max_retries} failed: {e}")
             if attempt < max_retries - 1:
-                # Adjust the prompt further for clarification
-                clarification = (
-                    f"Your last response did not match the required format. "
-                    f"Ensure your response is a JSON object strictly matching this schema: {output_schema}. "
-                )
-                prompt = clarification + prompt
+                prompt = (f"Ensure your response matches the schema: {output_schema}. "
+                          f"Return only the JSON object.") + "\n" + prompt
                 time.sleep(1)
-            else:
-                raise RuntimeError("Maximum retries reached. Failed to generate the required output.")
+
+    response.choices[0].data_dict = {}
+    return response  # Final fallback
