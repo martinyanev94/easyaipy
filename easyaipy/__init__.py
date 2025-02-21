@@ -1,1 +1,1 @@
-from .openai_easy import openai_easy_prompt
+from .easyai import gemini_easy_prompt, openai_easy_prompt
