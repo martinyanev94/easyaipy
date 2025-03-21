@@ -37,7 +37,7 @@ response = openai_easy_prompt(
 )
 
 # Print the validated response
-print("Response:", response)
+print("Response:", response.choices[0].data_dict)
 ```
 
 ## Expected Output
